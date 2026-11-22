@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reams A4 Premium Paper — Interactive 3D Outer Sleeve &amp; Inner Pouches Mockup</title>
-  <meta name="description" content="Interactive 3D Packaging Mockup — Reams A4 Premium Paper (Outer Sleeve 215×310×35 mm + Glossy Clear Inner Pouches: 3×100 or 1×240 sheets)" />
+  <meta name="description" content="Interactive 3D Packaging Mockup — Reams A4 Premium Paper (Open Sleeve & Top-Opening Tuck Box + Glossy Clear Inner Pouches)" />
   <meta property="og:title" content="Reams A4 Premium Paper — 3D Packaging Mockup" />
-  <meta property="og:description" content="ໝຸນເບິ່ງ 360° ປອກສວມເຈ້ຍ A4 Reams ແລະ ດຶງຊອງພລາສຕິກໃສດ້ານໃນອອກເບິ່ງໄດ້ແບບ 3D (ຮອງຮັບທັງ 3×100 ໃບ ແລະ 240 ໃບ/ປອກ)" />
+  <meta property="og:description" content="ໝຸນເບິ່ງ 360° ປອກສວມ & ກ່ອງໄຂຝາເທິງ Reams A4 ພ້ອມດຶງຊອງພລາສຕິກໃສດ້ານໃນອອກແບບ 3D" />
   <meta property="og:image" content="https://menh-d.github.io/reams-3d-mockup/preview.jpg" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -480,6 +480,14 @@
 
   <aside class="hud-panel" aria-label="Mockup Controls">
     <div>
+      <div class="section-title">ຮູບແບບປອກ/ກ່ອງດ້ານນອກ (Outer)</div>
+      <div class="btn-grid" id="outer-btns">
+        <button class="ctrl-btn active" data-outer="sleeve" type="button">ປອກສວມເປີດຫົວ-ທ້າຍ</button>
+        <button class="ctrl-btn" data-outer="topbox" type="button">ກ່ອງໄຂຝາດ້ານເທິງ</button>
+      </div>
+    </div>
+
+    <div>
       <div class="section-title">ແບບຊອງພລາສຕິກໃສດ້ານໃນ (Inner Pack)</div>
       <div class="btn-grid" id="pack-btns">
         <button class="ctrl-btn active" data-pack="3x100" type="button">3 ຊອງ × 100 ໃບ</button>
@@ -760,7 +768,16 @@
         bumpMap: grainTex,
         bumpScale: 0.00032,
       }),
-      sleeveInt: new THREE.MeshStandardMaterial({ color: 0xe4e2dc, roughness: 0.86 }),
+      sleevePlain: new THREE.MeshPhysicalMaterial({
+        color: 0xf1f2f2,
+        roughness: 0.56,
+        metalness: 0.0,
+        clearcoat: 0.06,
+        clearcoatRoughness: 0.44,
+        bumpMap: grainTex,
+        bumpScale: 0.00030,
+      }),
+      sleeveInt: new THREE.MeshStandardMaterial({ color: 0xdedbd3, roughness: 0.86 }),
       sleeveEdge: new THREE.MeshStandardMaterial({ color: 0xf0efe9, roughness: 0.90 }),
       paperTop: new THREE.MeshStandardMaterial({ color: 0xfcfdfe, roughness: 0.76 }),
       paperEdges100: new THREE.MeshStandardMaterial({
@@ -862,18 +879,33 @@
       return res;
     }
 
-    // Cache sleeve geometries once
-    const sleeveGeos = (() => {
-      const oProf = buildProfile(W, D, CORNER_R);
-      const iProf = buildProfile(W - 2 * WALL_T, D - 2 * WALL_T, Math.max(0.0005, CORNER_R - WALL_T)).map(([x, y, u]) => [x, y + WALL_T, u]);
+    // Cache both Open Sleeve & Top-Opening Tuck Box geometries (with smooth semicircular thumb-cut notch!)
+    const buildOuterTubeGeos = (withThumbNotch) => {
+      const oProf = buildProfile(W, D, CORNER_R, 6, withThumbNotch ? 28 : 10, 3);
+      const iProf = buildProfile(W - 2 * WALL_T, D - 2 * WALL_T, Math.max(0.0005, CORNER_R - WALL_T), 6, withThumbNotch ? 28 : 10, 3)
+        .map(([x, y, u]) => [x, y + WALL_T, u]);
       const N = oProf.length - 1, zSegs = 12;
+      const notchR = 0.0145, notchDepth = 0.0072;
+
+      const topZFor = (x, y) => {
+        if (withThumbNotch && y > D * 0.85 && Math.abs(x) < notchR) {
+          const t = x / notchR;
+          return -(L / 2) + notchDepth * Math.sqrt(Math.max(0, 1 - t * t));
+        }
+        return -(L / 2);
+      };
+
       const makeTube = (prof, inward) => {
         const pos = [], uvs = [], idx = [];
         for (let j = 0; j <= zSegs; j++) {
-          const t = j / zSegs, z = (L / 2) - L * t;
+          const frac = j / zSegs;
           for (let i = 0; i <= N; i++) {
-            pos.push(prof[i][0], prof[i][1], z);
-            uvs.push(prof[i][2], t);
+            const [px, py, pu] = prof[i];
+            const zTop = topZFor(px, py);
+            const z = (L / 2) + (zTop - L / 2) * frac;
+            const vCoord = ((L / 2) - z) / L;
+            pos.push(px, py, z);
+            uvs.push(pu, vCoord);
           }
         }
         const s = N + 1;
@@ -889,9 +921,10 @@
       const rimPos = [], rimIdx = [];
       let base = 0;
       for (const zSign of [1, -1]) {
-        const z = zSign * (L / 2);
         for (let i = 0; i < N; i++) {
-          rimPos.push(oProf[i][0], oProf[i][1], z, oProf[i+1][0], oProf[i+1][1], z, iProf[i+1][0], iProf[i+1][1], z, iProf[i][0], iProf[i][1], z);
+          const z0 = zSign > 0 ? (L / 2) : topZFor(oProf[i][0], oProf[i][1]);
+          const z1 = zSign > 0 ? (L / 2) : topZFor(oProf[i+1][0], oProf[i+1][1]);
+          rimPos.push(oProf[i][0], oProf[i][1], z0, oProf[i+1][0], oProf[i+1][1], z1, iProf[i+1][0], iProf[i+1][1], z1, iProf[i][0], iProf[i][1], z0);
           if (zSign > 0) rimIdx.push(base, base+3, base+2, base, base+2, base+1);
           else rimIdx.push(base, base+1, base+2, base, base+2, base+3);
           base += 4;
@@ -901,13 +934,115 @@
       rim.setAttribute('position', new THREE.Float32BufferAttribute(rimPos, 3));
       rim.setIndex(rimIdx); rim.computeVertexNormals();
       return { outer: makeTube(oProf, false), inner: makeTube(iProf, true), rim };
+    };
+
+    const sleeveGeos = buildOuterTubeGeos(false);
+    const topBoxGeos = buildOuterTubeGeos(true);
+
+    // Build reusable articulated Top-Opening Tuck Box flap geometries (duplex front/back materials)
+    function makeDuplexShapeGeo(shape, thickness) {
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 10 });
+      geo.translate(0, 0, -thickness / 2);
+      // ExtrudeGeometry uses group 0 for front/back caps, group 1 for bevel/sides; separate front (+Z) & back (-Z) cleanly!
+      return geo;
+    }
+
+    const lidPanelGeo = new THREE.BoxGeometry(W - 0.0020, D - WALL_T, WALL_T);
+    const botCapGeo   = new THREE.BoxGeometry(W - 0.0022, D - 0.0022, WALL_T);
+    // Rounded Tuck-In Tongue shape in X-Y plane, rotated so it extends along +Z from 0 to +0.019
+    const tongueGeo = (() => {
+      const hw = W / 2 - 0.0038, len = 0.019, r = 0.0072;
+      const sh = new THREE.Shape();
+      sh.moveTo(-hw, 0);
+      sh.lineTo(hw, 0);
+      sh.lineTo(hw, len - r);
+      sh.absarc(hw - r, len - r, r, 0, Math.PI / 2, false);
+      sh.lineTo(-(hw - r), len);
+      sh.absarc(-(hw - r), len - r, r, Math.PI / 2, Math.PI, false);
+      sh.closePath();
+      const g = makeDuplexShapeGeo(sh, WALL_T * 0.9);
+      // Currently in X-Y (extending +Y) with thickness along Z; rotate +90deg around X -> extends along +Z, thickness along Y!
+      g.rotateX(Math.PI / 2);
+      return g;
     })();
 
-    function createSleeveMesh() {
+    // Die-cut trapezoidal Dust Flap shape (extends along +X from 0 to +0.025, height along Y in [WALL_T+0.001, D-WALL_T-0.001])
+    const leftDustGeo = (() => {
+      const len = 0.025, y0 = WALL_T + 0.0012, y1 = D - WALL_T - 0.0012;
+      const sh = new THREE.Shape();
+      sh.moveTo(0, y0);
+      sh.lineTo(0.004, y0);
+      sh.lineTo(len, y0 + 0.0045);
+      sh.lineTo(len, y1 - 0.0055);
+      sh.lineTo(0.004, y1);
+      sh.lineTo(0, y1);
+      sh.closePath();
+      return makeDuplexShapeGeo(sh, WALL_T * 0.9);
+    })();
+    const rightDustGeo = (() => {
+      const g = leftDustGeo.clone();
+      g.scale(-1, 1, 1);
+      // Flip face winding after negative X scale
+      const pos = g.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        const x1 = pos.getX(i+1), y1 = pos.getY(i+1), z1 = pos.getZ(i+1);
+        pos.setXYZ(i+1, pos.getX(i+2), pos.getY(i+2), pos.getZ(i+2));
+        pos.setXYZ(i+2, x1, y1, z1);
+      }
+      g.computeVertexNormals();
+      return g;
+    })();
+
+    function createSleeveMesh(isTopBox = false) {
       const g = new THREE.Group();
-      const o = new THREE.Mesh(sleeveGeos.outer, mats.sleeveExt); o.castShadow = true; o.receiveShadow = true; g.add(o);
-      const inn = new THREE.Mesh(sleeveGeos.inner, mats.sleeveInt); inn.receiveShadow = true; g.add(inn);
-      const r = new THREE.Mesh(sleeveGeos.rim, mats.sleeveEdge); r.castShadow = true; r.receiveShadow = true; g.add(r);
+      const geos = isTopBox ? topBoxGeos : sleeveGeos;
+      const o = new THREE.Mesh(geos.outer, mats.sleeveExt); o.castShadow = true; o.receiveShadow = true; g.add(o);
+      const inn = new THREE.Mesh(geos.inner, mats.sleeveInt); inn.receiveShadow = true; g.add(inn);
+      const r = new THREE.Mesh(geos.rim, mats.sleeveEdge); r.castShadow = true; r.receiveShadow = true; g.add(r);
+
+      if (isTopBox) {
+        // 1. Sealed closed bottom end at +Z = +L/2
+        const botMats = [mats.sleeveEdge, mats.sleeveEdge, mats.sleeveEdge, mats.sleeveEdge, mats.sleevePlain, mats.sleeveInt];
+        const botCap = new THREE.Mesh(botCapGeo, botMats);
+        botCap.position.set(0, D / 2, L / 2 - WALL_T / 2);
+        botCap.castShadow = true; botCap.receiveShadow = true;
+        g.add(botCap);
+
+        // 2. Hinged Top Lid at Back-Top edge (y = WALL_T/2, z = -L/2)
+        const lidPivot = new THREE.Group();
+        lidPivot.position.set(0, WALL_T / 2, -L / 2);
+        const lidMats = [mats.sleeveEdge, mats.sleeveEdge, mats.sleeveEdge, mats.sleeveEdge, mats.sleeveInt, mats.sleevePlain];
+        const lidMesh = new THREE.Mesh(lidPanelGeo, lidMats);
+        lidMesh.position.set(0, (D - WALL_T) / 2, 0);
+        lidMesh.castShadow = true; lidMesh.receiveShadow = true;
+        lidPivot.add(lidMesh);
+
+        // 3. Rounded Tuck-In Tongue Flap hinged at front tip of Top Lid (y = D - WALL_T)
+        const tonguePivot = new THREE.Group();
+        tonguePivot.position.set(0, D - WALL_T, 0);
+        const tongueMesh = new THREE.Mesh(tongueGeo, [mats.sleevePlain, mats.sleeveEdge]);
+        tongueMesh.castShadow = true; tongueMesh.receiveShadow = true;
+        tonguePivot.add(tongueMesh);
+        lidPivot.add(tonguePivot);
+        g.add(lidPivot);
+
+        // 4. Left & Right Side Dust Flaps
+        const leftDustPivot = new THREE.Group();
+        leftDustPivot.position.set(-W / 2 + WALL_T / 2, 0, -L / 2 + WALL_T * 0.6);
+        const ldm = new THREE.Mesh(leftDustGeo, [mats.sleevePlain, mats.sleeveEdge]);
+        ldm.castShadow = true; ldm.receiveShadow = true;
+        leftDustPivot.add(ldm);
+        g.add(leftDustPivot);
+
+        const rightDustPivot = new THREE.Group();
+        rightDustPivot.position.set(W / 2 - WALL_T / 2, 0, -L / 2 + WALL_T * 0.6);
+        const rdm = new THREE.Mesh(rightDustGeo, [mats.sleevePlain, mats.sleeveEdge]);
+        rdm.castShadow = true; rdm.receiveShadow = true;
+        rightDustPivot.add(rdm);
+        g.add(rightDustPivot);
+
+        g.userData.boxRig = { lidPivot, tonguePivot, leftDustPivot, rightDustPivot };
+      }
       return g;
     }
 
@@ -997,7 +1132,10 @@
 
     function createReamPack(flippedGravity = false, pouchMask = null) {
       const root = new THREE.Group();
-      root.add(createSleeveMesh());
+      const isBox = outerMode === 'topbox';
+      const sleeveObj = createSleeveMesh(isBox);
+      root.add(sleeveObj);
+      root.userData.boxRig = sleeveObj.userData.boxRig || null;
 
       const pouches = [];
       if (packMode === '1x240') {
@@ -1034,7 +1172,8 @@
     scene.add(stageGroup);
 
     let activePacks = [];
-    let packMode = '3x100'; // '3x100' or '1x240'
+    let outerMode = 'sleeve'; // 'sleeve' or 'topbox'
+    let packMode = '3x100';   // '3x100' or '1x240'
     let baseLayout = 'single';
     let currentLayout = 'single';
     let standingMode = false;
@@ -1045,11 +1184,40 @@
       const frac = pullPct / 100;
       activePacks.forEach((pack) => {
         const pouches = pack.userData.pouches;
-        if (!pouches || !pouches.length) return;
+        const rig = pack.userData.boxRig;
         const scale = pack.userData.pullScale ?? 1.0;
-        const dir = (pack.userData.pullDirOverride ?? pullDir) * (pack.userData.slideSign ?? 1);
         const flipped = !!pack.userData.flipped;
 
+        if (rig) {
+          // Articulated Top-Opening Tuck Box choreography:
+          // 0% -> 32%: Top lid & dust flaps swing open; 30% -> 100%: Inner clear pouches slide UP out of the open top (-Z)!
+          const openPhase = Math.min(1, frac / 0.32);
+          const easeOpen = 1 - Math.pow(1 - openPhase, 2.2);
+          const maxLidDeg = standingMode ? 110 : (flipped ? 105 : 88);
+          const lidRad = THREE.MathUtils.degToRad(maxLidDeg * easeOpen);
+          const tongueRad = THREE.MathUtils.degToRad(44 * easeOpen);
+          const dustRad = THREE.MathUtils.degToRad(114 * easeOpen);
+
+          rig.lidPivot.rotation.x = -lidRad;
+          rig.tonguePivot.rotation.x = -tongueRad;
+          rig.leftDustPivot.rotation.y = dustRad;
+          rig.rightDustPivot.rotation.y = -dustRad;
+
+          if (!pouches || !pouches.length) return;
+          const slidePhase = Math.max(0, (frac - 0.28) / 0.72);
+          const weights = pouches.length === 1
+            ? [1.0]
+            : (flipped ? [1.0, 0.36, 0.10] : [0.10, 0.36, 1.0]);
+          const maxPull = 0.325 * scale;
+          pouches.forEach((p, idx) => {
+            if (!p) return;
+            p.position.z = -(slidePhase * maxPull * weights[idx]);
+          });
+          return;
+        }
+
+        if (!pouches || !pouches.length) return;
+        const dir = (pack.userData.pullDirOverride ?? pullDir) * (pack.userData.slideSign ?? 1);
         const weights = pouches.length === 1
           ? [1.0]
           : (flipped ? [1.0, 0.36, 0.10] : [0.10, 0.36, 1.0]);
@@ -1177,7 +1345,40 @@
     };
 
     const headerSpecEl = document.getElementById('header-spec');
+    const outerBtns = document.getElementById('outer-btns');
     const packBtns = document.getElementById('pack-btns');
+    const dirBtns = document.getElementById('dir-btns');
+
+    function updateHeaderSpec() {
+      const outerTxt = outerMode === 'topbox' ? 'ກ່ອງໄຂຝາເທິງ 215×310×35 mm' : 'ປອກນອກ 215×310×35 mm';
+      const innerTxt = packMode === '1x240' ? 'ຊອງພລາສຕິກໃສດ້ານໃນ 240 ໃບ (1 ຊອງ/ປອກ)' : 'ຊອງພລາສຕິກໃສດ້ານໃນ 3×100 ໃບ';
+      headerSpecEl.textContent = `${outerTxt} · ${innerTxt}`;
+    }
+
+    function applyOuterMode(mode, autoFrame = true) {
+      outerMode = mode === 'topbox' ? 'topbox' : 'sleeve';
+      const targetBtn = outerBtns.querySelector(`button[data-outer="${outerMode}"]`);
+      if (targetBtn) setActive(outerBtns, targetBtn);
+      dirBtns.style.display = outerMode === 'topbox' ? 'none' : '';
+      updateHeaderSpec();
+      if (outerMode === 'topbox') {
+        // Showcase the articulated top-opening box standing upright at an elevated 3/4 view showing the open lid, rounded tongue & dust flaps!
+        if (pullPct < 36 || pullPct > 60) {
+          pullInput.value = '40';
+          syncPullSlider();
+        }
+        rebuildLayout(baseLayout, true);
+        const standBtn = camBtns.querySelector('button[data-cam="standing"]');
+        if (standBtn) setActive(camBtns, standBtn);
+        if (autoFrame) moveCameraTo([0.44, 0.44, 0.70], [0.0, 0.185, 0.0]);
+      } else {
+        rebuildLayout(baseLayout, false);
+        const heroBtn = camBtns.querySelector('button[data-cam="hero"]');
+        if (heroBtn) setActive(camBtns, heroBtn);
+        if (autoFrame) moveCameraTo(CAM_PRESETS.hero.pos, CAM_PRESETS.hero.target);
+      }
+    }
+
     function applyPackMode(mode) {
       packMode = mode === '1x240' ? '1x240' : '3x100';
       const targetBtn = packBtns.querySelector(`button[data-pack="${packMode}"]`);
@@ -1187,19 +1388,20 @@
       mats.sleeveExt.needsUpdate = true;
       mats.oppFrontPrint.map = is240 ? inFrontTex240 : inFrontTex100;
       mats.oppFrontPrint.needsUpdate = true;
-      headerSpecEl.textContent = is240
-        ? 'ປອກນອກ 215×310×35 mm · ຊອງພລາສຕິກໃສດ້ານໃນ 240 ໃບ (1 ຊອງ/ປອກ)'
-        : 'ປອກນອກ 215×310×35 mm · ຊອງພລາສຕິກໃສດ້ານໃນ 3×100 ໃບ';
+      updateHeaderSpec();
       rebuildLayout(currentLayout, standingMode);
     }
+
+    outerBtns.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-outer]');
+      if (!btn) return;
+      applyOuterMode(btn.dataset.outer, true);
+    });
     packBtns.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-pack]');
       if (!btn) return;
       applyPackMode(btn.dataset.pack);
     });
-    if (new URLSearchParams(window.location.search).get('pack') === '240') {
-      applyPackMode('1x240');
-    }
 
     const layoutBtns = document.getElementById('layout-btns');
     layoutBtns.addEventListener('click', (e) => {
@@ -1237,7 +1439,7 @@
       }
     });
 
-    // Pull-Out accessible range slider syncing
+    // Pull-Out / Open-Lid accessible range slider syncing
     const pullInput = document.getElementById('pull-range');
     const pullValEl = document.getElementById('pull-val');
     function syncPullSlider() {
@@ -1246,13 +1448,22 @@
       pullInput.style.setProperty('--control-value', pullInput.value);
       pullPct = Number(pullInput.value);
       pullValEl.textContent = `${pullPct}%`;
-      pullInput.setAttribute('aria-valuetext', `${pullPct} percent pulled out`);
+      pullInput.setAttribute('aria-valuetext', `${pullPct} percent`);
       applyPullPositions();
     }
     syncPullSlider();
     pullInput.addEventListener('input', syncPullSlider);
 
-    const dirBtns = document.getElementById('dir-btns');
+    // Optional deep-link query params (?pack=240, ?outer=box)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('pack') === '240') applyPackMode('1x240');
+    if (urlParams.get('outer') === 'box') {
+      applyOuterMode('topbox', false);
+      camera.position.set(0.44, 0.44, 0.70);
+      controls.target.set(0.0, 0.185, 0.0);
+      controls.update();
+    }
+
     dirBtns.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-dir]');
       if (!btn) return;
