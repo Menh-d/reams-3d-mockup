@@ -343,6 +343,102 @@
       color: var(--text-muted);
       box-shadow: 0 6px 20px rgba(18, 28, 56, 0.08);
       pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    /* Full Screen showcase mode transitions */
+    .hud-header,
+    .hud-panel {
+      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+    }
+
+    body.is-fullscreen .hud-header,
+    body.is-fullscreen .hint-pill {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-8px);
+    }
+
+    body.is-fullscreen:not(.fs-show-panel) .hud-panel {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(16px);
+    }
+
+    body.is-fullscreen.fs-show-panel .hud-panel {
+      top: 66px;
+      max-height: calc(100vh - 84px);
+    }
+
+    .fs-toolbar {
+      position: fixed;
+      top: 18px;
+      right: 20px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-6px);
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+
+    body.is-fullscreen .fs-toolbar {
+      opacity: 0.55;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    body.is-fullscreen .fs-toolbar:hover,
+    body.is-fullscreen .fs-toolbar:focus-within,
+    body.is-fullscreen.fs-show-panel .fs-toolbar {
+      opacity: 1;
+    }
+
+    button.fs-pill {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: var(--brand-navy);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 13px;
+      border-radius: 999px;
+      box-shadow: var(--shadow-ui);
+      cursor: pointer;
+      transition: background 0.16s ease, color 0.16s ease, transform 0.1s ease;
+    }
+
+    button.fs-pill:hover {
+      background: var(--brand-navy);
+      color: #fff;
+    }
+
+    button.fs-pill:active {
+      transform: scale(0.97);
+    }
+
+    button.fs-pill:focus-visible {
+      outline: 2px solid var(--brand-navy);
+      outline-offset: 2px;
+    }
+
+    button.ctrl-btn.btn-inline-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     @media (max-width: 720px) {
@@ -352,6 +448,11 @@
         right: 12px;
         left: 12px;
         width: auto;
+        max-height: 46vh;
+      }
+      body.is-fullscreen.fs-show-panel .hud-panel {
+        top: auto;
+        bottom: 12px;
         max-height: 46vh;
       }
       .hint-pill { display: none; }
@@ -432,12 +533,41 @@
     </div>
 
     <div class="action-row">
-      <button class="ctrl-btn" id="btn-spin" type="button" style="flex:0.85">ໝຸນອັດຕະໂນມັດ</button>
-      <button class="primary-btn" id="btn-snap" type="button">ບັນທຶກ PNG</button>
+      <button class="ctrl-btn" id="btn-spin" type="button" style="flex:0.9">ໝຸນອັດຕະໂນມັດ</button>
+      <button class="ctrl-btn btn-inline-icon" id="btn-fullscreen" type="button" style="flex:0.9" title="Full Screen (F)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <polyline points="9 21 3 21 3 15"></polyline>
+          <line x1="21" y1="3" x2="14" y2="10"></line>
+          <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+        <span>ເຕັມຈໍ</span>
+      </button>
     </div>
+    <button class="primary-btn" id="btn-snap" type="button">ບັນທຶກຮູບ PNG</button>
   </aside>
 
-  <div class="hint-pill">ລາກເມົ້າໝຸນ 360° · ເລື່ອນລູກກິ້ງຊູມ · ລາກແຖບ "ດຶງຊອງໃສດ້ານໃນອອກ" ຫຼື ກົດ "ຖອດອອກ"</div>
+  <div class="fs-toolbar" aria-label="Full screen controls">
+    <button class="fs-pill" id="btn-fs-panel" type="button" title="Toggle controls (H)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="4" y1="6" x2="20" y2="6"></line>
+        <line x1="4" y1="12" x2="20" y2="12"></line>
+        <line x1="4" y1="18" x2="20" y2="18"></line>
+      </svg>
+      <span>ເມນູ</span>
+    </button>
+    <button class="fs-pill" id="btn-fs-exit" type="button" title="Exit Full Screen (Esc)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="4 14 10 14 10 20"></polyline>
+        <polyline points="20 10 14 10 14 4"></polyline>
+        <line x1="14" y1="10" x2="21" y2="3"></line>
+        <line x1="3" y1="21" x2="10" y2="14"></line>
+      </svg>
+      <span>ອອກຈາກເຕັມຈໍ</span>
+    </button>
+  </div>
+
+  <div class="hint-pill">ລາກເມົ້າໝຸນ 360° · ເລື່ອນລູກກິ້ງຊູມ · ກົດ F ເພື່ອເປີດ Full Screen</div>
 
   <script type="importmap">
     {
@@ -1038,11 +1168,90 @@
       link.click();
     });
 
-    window.addEventListener('resize', () => {
+    // Full Screen Mode (native Fullscreen API + clean showcase fallback for iOS/embedded panes)
+    const fsBtn = document.getElementById('btn-fullscreen');
+    const fsExitBtn = document.getElementById('btn-fs-exit');
+    const fsPanelBtn = document.getElementById('btn-fs-panel');
+
+    function isNativeFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+
+    function resizeViewer() {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    async function enterFullScreen() {
+      document.body.classList.add('is-fullscreen');
+      document.body.classList.remove('fs-show-panel');
+      const rootEl = document.documentElement;
+      try {
+        if (!isNativeFullscreen()) {
+          if (rootEl.requestFullscreen) {
+            await rootEl.requestFullscreen();
+          } else if (rootEl.webkitRequestFullscreen) {
+            rootEl.webkitRequestFullscreen();
+          }
+        }
+      } catch (_err) {
+        // Graceful fallback: stay in clean viewport full-screen showcase mode
+      }
+      requestAnimationFrame(resizeViewer);
+    }
+
+    async function exitFullScreen() {
+      document.body.classList.remove('is-fullscreen', 'fs-show-panel');
+      try {
+        if (isNativeFullscreen()) {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          }
+        }
+      } catch (_err) {
+        // Ignore if already exited
+      }
+      requestAnimationFrame(resizeViewer);
+    }
+
+    fsBtn.addEventListener('click', () => {
+      if (document.body.classList.contains('is-fullscreen')) exitFullScreen();
+      else enterFullScreen();
     });
+    fsExitBtn.addEventListener('click', exitFullScreen);
+    fsPanelBtn.addEventListener('click', () => {
+      document.body.classList.toggle('fs-show-panel');
+    });
+
+    const onNativeFsChange = () => {
+      if (!isNativeFullscreen()) {
+        document.body.classList.remove('is-fullscreen', 'fs-show-panel');
+      } else {
+        document.body.classList.add('is-fullscreen');
+      }
+      requestAnimationFrame(resizeViewer);
+    };
+    document.addEventListener('fullscreenchange', onNativeFsChange);
+    document.addEventListener('webkitfullscreenchange', onNativeFsChange);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        if (document.body.classList.contains('is-fullscreen')) exitFullScreen();
+        else enterFullScreen();
+      } else if ((e.key === 'h' || e.key === 'H') && document.body.classList.contains('is-fullscreen')) {
+        e.preventDefault();
+        document.body.classList.toggle('fs-show-panel');
+      } else if (e.key === 'Escape' && document.body.classList.contains('is-fullscreen') && !isNativeFullscreen()) {
+        exitFullScreen();
+      }
+    });
+
+    window.addEventListener('resize', resizeViewer);
 
     renderer.render(scene, camera);
     loaderEl.classList.add('hidden');
